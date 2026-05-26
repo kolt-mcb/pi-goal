@@ -124,7 +124,8 @@ async function handleTurnEnd(event: TurnEndEvent, ctx: ExtensionContext): Promis
 		`Continue working toward it.`,
 	].join("\n");
 
-	pi.sendMessage({
+	if (!extensionApi) return;
+	extensionApi.sendMessage({
 		customType: STATE_TYPE,
 		content: reminder,
 		display: `Goal: turn ${activeGoal.turnCount} — ${evalResult.reason}`,
