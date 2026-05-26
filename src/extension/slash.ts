@@ -91,7 +91,7 @@ async function doSetGoal(api: GoalSlashAPI, condition: string, ctx: ExtensionCom
 	ctx.ui.notify(`Goal set: "${condition.slice(0, 60)}${condition.length > 60 ? "…" : ""}"`, "info");
 
 	// Start the first turn with the condition as the user prompt
-	await ctx.sendUserMessage(condition, { executeSlashCommands: false });
+	pi.sendUserMessage(condition, { executeSlashCommands: false });
 }
 
 async function showStatus(goal: GoalState, ctx: ExtensionCommandContext): Promise<void> {

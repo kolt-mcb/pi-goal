@@ -33,6 +33,7 @@ const MAX_REMINDER_COUNT = 120; // ~30 minutes at 15 turns—rough cap
 let activeGoal: GoalState | null = null;
 let statusTimer: ReturnType<typeof setInterval> | null = null;
 let lastUiCtx: ExtensionContext | null = null;
+let extensionApi: ExtensionAPI | null = null;
 
 // ── Status display ───────────────────────────────────────────────────────
 function statusText(goal: GoalState): string {
@@ -123,7 +124,7 @@ async function handleTurnEnd(event: TurnEndEvent, ctx: ExtensionContext): Promis
 		`Continue working toward it.`,
 	].join("\n");
 
-	await ctx.sendMessage({
+	pi.sendMessage({
 		customType: STATE_TYPE,
 		content: reminder,
 		display: `Goal: turn ${activeGoal.turnCount} — ${evalResult.reason}`,
@@ -154,6 +155,8 @@ function handleSessionShutdown(_event: SessionShutdownEvent): void {
 
 // ── Extension entry point ────────────────────────────────────────────────
 export default function registerGoalExtension(pi: ExtensionAPI): void {
+	extensionApi = pi;
+
 	// Register slash commands
 	registerSlashCommands(pi, {
 		get: () => activeGoal,
