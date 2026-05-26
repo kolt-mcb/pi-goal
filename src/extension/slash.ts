@@ -36,7 +36,7 @@ export function registerSlashCommands(pi: ExtensionAPI, api: GoalSlashAPI): void
 					return;
 				}
 				// Additional args on active goal → replace condition
-				await doSetGoal(api, trimmed, ctx);
+				await doSetGoal(pi, api, trimmed, ctx);
 				return;
 			}
 
@@ -57,7 +57,7 @@ export function registerSlashCommands(pi: ExtensionAPI, api: GoalSlashAPI): void
 			}
 
 			// New goal
-			await doSetGoal(api, trimmed, ctx);
+			await doSetGoal(pi, api, trimmed, ctx);
 		},
 	});
 }
@@ -78,7 +78,12 @@ async function handleActiveGoal(args: string, api: GoalSlashAPI, ctx: ExtensionC
 }
 
 /** Set a fresh goal and start the first turn. */
-async function doSetGoal(api: GoalSlashAPI, condition: string, ctx: ExtensionCommandContext): Promise<void> {
+async function doSetGoal(
+	_pi: ExtensionAPI,
+	api: GoalSlashAPI,
+	condition: string,
+	ctx: ExtensionCommandContext,
+): Promise<void> {
 	const state: GoalState = {
 		condition,
 		startedAt: Date.now(),
@@ -91,7 +96,7 @@ async function doSetGoal(api: GoalSlashAPI, condition: string, ctx: ExtensionCom
 	ctx.ui.notify(`Goal set: "${condition.slice(0, 60)}${condition.length > 60 ? "…" : ""}"`, "info");
 
 	// Start the first turn with the condition as the user prompt
-	pi.sendUserMessage(condition, { executeSlashCommands: false });
+	_pi.sendUserMessage(condition, { executeSlashCommands: false });
 }
 
 async function showStatus(goal: GoalState, ctx: ExtensionCommandContext): Promise<void> {
