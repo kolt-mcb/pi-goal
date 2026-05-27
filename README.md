@@ -35,7 +35,7 @@ you describe the *end state*, not each step.
 From npm:
 
 ```bash
-pi install npm:@kolt-mcb/pi-goal
+pi install npm:@koltmcbride/pi-goal
 ```
 
 From git:
