@@ -1,56 +1,34 @@
 # pi-goal
 
-Goal-directed autonomous work loops for [pi](https://github.com/earendil-works/pi-coding-agent).
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
+[![pi package](https://img.shields.io/badge/pi-extension-5b54d6.svg)](https://github.com/earendil-works/pi-coding-agent)
 
-Mirrors Claude Code's `/goal` interface:
+> Goal-directed autonomous work loops for [pi](https://github.com/earendil-works/pi-coding-agent).
 
-```
-/goal <condition>    # set a goal, start working immediately
-/goal                # show goal status (condition, time, turns, reason)
-/goal clear          # clear the active goal
-```
-
-## How it works
-
-1. **Set a goal** — `/goal all tests pass and lint is clean`
-   The condition is sent as a user message, kicking off the first turn immediately.
-
-2. **Autonomous loop** — After each turn, a lightweight evaluator call (same configured model) checks:
-   > Has the condition been met based on the agent's output?
-
-3. **Continue or stop** — If not met, a `nextTurn` message triggers the next turn automatically. The agent keeps working until the condition is satisfied or you `/goal clear`.
-
-## Usage
-
-### What to use goals for
-
-Substantial work with a verifiable end state:
-
-- Migrating a module to a new API until every call site compiles and tests pass
-- Implementing a design doc until all acceptance criteria hold
-- Working through a labeled issue backlog until the queue is empty
-
-### Effective conditions
-
-A good condition has:
-- **One measurable end state** — test results, build exit code, empty queue
-- **A clear proof mechanism** — how the agent demonstrates it in its output
+Set a goal as a single completion condition. After every turn, a lightweight
+evaluator checks whether the condition is met. If it isn't, the agent is
+automatically prompted to keep working — turn after turn — until the goal is
+satisfied or you stop it. It's the autonomous counterpart to a plain prompt:
+you describe the *end state*, not each step.
 
 ```
 /goal all tests in test/auth pass and the lint step is clean
-/goal refactor src/database to use connection pooling, verified by tests in test/db.test.ts
-/goal write documentation for the public API until every exported symbol has a docstring
 ```
 
-### Status display
+---
 
-While active, the footer shows the goal timer: `⏱ 3t · 2m 15s`
+## Features
 
-On completion: `✓ Goal achieved in 3 turns`
+- **Single-condition goals** — describe a verifiable end state; the agent drives toward it.
+- **Self-evaluating loop** — after each turn the configured model judges progress with a cheap yes/no call.
+- **Live status** — a footer timer shows elapsed time and turn count while a goal runs.
+- **Resumes across sessions** — an in-progress goal is restored automatically when you reopen the session.
+- **Bounded** — a hard turn cap prevents a goal that never resolves from looping forever.
 
-### Resuming
+## Requirements
 
-A goal that was still active when a session ended is restored automatically on resume.
+- [pi](https://github.com/earendil-works/pi-coding-agent) (`@earendil-works/pi-coding-agent`).
+- A configured model — the same model that powers your session is reused for evaluation.
 
 ## Installation
 
@@ -58,28 +36,98 @@ A goal that was still active when a session ended is restored automatically on r
 pi install git:github.com/kolt-mcb/pi-goal
 ```
 
-Or from a full URL:
+Or from the full URL:
 
 ```bash
 pi install https://github.com/kolt-mcb/pi-goal
 ```
 
-Pi packages run with full system access — review the source before installing.
+> ⚠️ Pi packages run with full system access. Review the source before installing.
+
+## Usage
+
+```
+/goal <condition>    Set a goal and start working immediately
+/goal                Show the active goal's status
+/goal status         Alias for /goal
+/goal clear          Clear the active goal (alias: /goal stop)
+```
+
+Re-issuing `/goal <condition>` while a goal is active replaces the condition
+and restarts the loop with it.
+
+### Writing effective conditions
+
+A good condition has **one measurable end state** and **a clear way for the
+agent to demonstrate it** in its output:
+
+```
+/goal all tests in test/auth pass and the lint step is clean
+/goal refactor src/database to use connection pooling, verified by tests in test/db.test.ts
+/goal every exported symbol in src/api has a docstring
+```
+
+Goals work best for substantial, verifiable work — migrating a module until
+every call site compiles, implementing a design doc until its acceptance
+criteria hold, or working through a backlog until the queue is empty.
+
+### Status display
+
+While a goal is active, the footer shows a live timer:
+
+```
+⏱ 3t · 2m 15s
+```
+
+`/goal` (or `/goal status`) prints the full state:
+
+```
+Condition: all tests in test/auth pass and the lint step is clean
+Running:   2m 15s
+Turns:     3
+Last reason: one failing test remains in test/auth/login.test.ts
+```
+
+On completion the footer reports `✓ Goal achieved in 3 turns`.
+
+## How it works
+
+1. **Set** — `/goal <condition>` records the condition and sends it as the
+   first prompt, kicking off work immediately.
+2. **Evaluate** — at the end of each turn, the agent's text and tool results are
+   summarized and passed to a minimal evaluator call on the same configured
+   model: *has the condition been met?*
+3. **Continue or stop** — if not met, a hidden continuation message is queued as
+   the next turn with the latest evaluation reason, and the agent keeps working.
+   When the evaluator returns *yes*, the loop stops and the result is reported.
+
+A goal stops automatically when the condition is met, when you run `/goal clear`,
+or after a safety cap of **120 turns** without success. State is persisted as
+custom session entries, so a goal that was still running when a session ended is
+restored on resume.
+
+## Relationship to Claude Code's `/goal`
+
+pi-goal mirrors the `/goal` interface from Claude Code, with a few differences:
+
+| | Claude Code | pi-goal |
+|---|:---:|:---:|
+| Slash interface | ✓ | ✓ |
+| Session persistence | ✓ | ✓ |
+| Footer timer | ✓ | ✓ |
+| Evaluation model | separate small model | your configured model (minimal reasoning) |
 
 ## Development
 
 ```bash
-npm install        # install dev/peer dependencies
+npm install        # install dev + peer dependencies
 npm run typecheck  # tsc --noEmit
 npm test           # run the smoke test
 ```
 
-## Comparison with Claude Code `/goal`
+The extension is plain TypeScript; pi loads the source directly via the `pi`
+manifest in [`package.json`](./package.json), so there is no build step.
 
-| Feature | Claude Code | pi-goal |
-|---------|-------------|---------|
-| Slash interface | ✅ | ✅ |
-| Same model for work + eval | ❌ (separate small model) | ✅ |
-| Session persistence | ✅ | ✅ |
-| Footer timer | ✅ | ✅ |
-| Subagents | ❌ | ❌ |
+## License
+
+[MIT](./LICENSE) © Kolt McBride
