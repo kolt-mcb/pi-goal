@@ -55,7 +55,23 @@ A goal that was still active when a session ended is restored automatically on r
 ## Installation
 
 ```bash
-pi install git:github.com/user/pi-goal
+pi install git:github.com/kolt-mcb/pi-goal
+```
+
+Or from a full URL:
+
+```bash
+pi install https://github.com/kolt-mcb/pi-goal
+```
+
+Pi packages run with full system access — review the source before installing.
+
+## Development
+
+```bash
+npm install        # install dev/peer dependencies
+npm run typecheck  # tsc --noEmit
+npm test           # run the smoke test
 ```
 
 ## Comparison with Claude Code `/goal`

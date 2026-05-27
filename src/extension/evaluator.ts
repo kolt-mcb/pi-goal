@@ -8,7 +8,7 @@
 
 import { completeSimple } from "@earendil-works/pi-ai";
 import type { Model } from "@earendil-works/pi-ai";
-import type { GoalState } from "./persistence.ts";
+import type { GoalState } from "./persistence";
 
 interface EvalResult {
 	met: boolean;
@@ -49,7 +49,8 @@ export async function evaluateGoal(
 			messages: [{ role: "user", content: prompt, timestamp: Date.now() }],
 			tools: [],
 		}, {
-			reasoning: "off",
+			// Keep the evaluator cheap: a yes/no judgement needs no deep reasoning.
+			reasoning: "minimal",
 		});
 
 		const text = (result.content ?? [])

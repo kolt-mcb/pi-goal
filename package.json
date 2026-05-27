@@ -3,14 +3,36 @@
   "version": "0.1.0",
   "description": "Pi extension for goal-directed autonomous work loops",
   "license": "MIT",
+  "author": "Kolt McBride",
   "type": "module",
-  "keywords": ["pi-package", "pi", "pi-coding-agent", "goal"],
+  "keywords": [
+    "pi-package",
+    "pi",
+    "pi-coding-agent",
+    "goal",
+    "automation"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kolt-mcb/pi-goal.git"
+  },
+  "bugs": {
+    "url": "https://github.com/kolt-mcb/pi-goal/issues"
+  },
+  "homepage": "https://github.com/kolt-mcb/pi-goal#readme",
   "files": [
     "src/**/*.ts",
-    "README.md"
+    "README.md",
+    "LICENSE"
   ],
   "pi": {
-    "extensions": ["./src/extension/index.ts"]
+    "extensions": [
+      "./src/extension/index.ts"
+    ]
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "tsx test/smoke.test.ts"
   },
   "peerDependencies": {
     "@earendil-works/pi-agent-core": "*",
@@ -18,17 +40,22 @@
     "@earendil-works/pi-coding-agent": "*"
   },
   "peerDependenciesMeta": {
-    "@earendil-works/pi-agent-core": { "optional": true },
-    "@earendil-works/pi-ai": { "optional": true },
-    "@earendil-works/pi-coding-agent": { "optional": true }
-  },
-  "dependencies": {
-    "@earendil-works/pi-tui": "^0.74.0",
-    "typebox": "^1.1.24"
+    "@earendil-works/pi-agent-core": {
+      "optional": true
+    },
+    "@earendil-works/pi-ai": {
+      "optional": true
+    },
+    "@earendil-works/pi-coding-agent": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "@earendil-works/pi-agent-core": "^0.74.0",
     "@earendil-works/pi-ai": "^0.74.0",
-    "@earendil-works/pi-coding-agent": "^0.74.0"
+    "@earendil-works/pi-coding-agent": "^0.74.0",
+    "@types/node": "^25.9.1",
+    "tsx": "^4.22.3",
+    "typescript": "^6.0.3"
   }
 }
