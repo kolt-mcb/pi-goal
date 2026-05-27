@@ -3,8 +3,11 @@
  *
  *   /goal <condition>  — set (or replace) a goal, start working
  *   /goal              — show goal status when active; usage info when no goal
- *   /goal clear        — clear the active goal (alias: stop)
+ *   /goal clear        — clear the active goal
  *   /goal status       — same as /goal
+ *
+ * Mirroring Claude Code's /goal, the clear action accepts several aliases:
+ * clear, stop, off, reset, none, cancel.
  *
  * The command owns no state of its own: index.ts passes accessor callbacks so
  * the command and the extension's turn-end loop share a single source of truth.
@@ -20,16 +23,40 @@ export interface GoalSlashAPI {
 	clear: () => void;
 }
 
+/** Words that clear an active goal. Mirrors Claude Code's /goal aliases. */
+const CLEAR_ALIASES = ["clear", "stop", "off", "reset", "none", "cancel"];
+
+/** Subcommands surfaced in the `/goal <Tab>` argument autocomplete. */
+const SUBCOMMAND_COMPLETIONS = [
+	{ value: "status", label: "status", description: "Show the active goal's status" },
+	{ value: "clear", label: "clear", description: "Clear the active goal" },
+	...CLEAR_ALIASES.filter((a) => a !== "clear").map((a) => ({
+		value: a,
+		label: a,
+		description: "Clear the active goal (alias for clear)",
+	})),
+];
+
+/** True when the argument is one of the clear/stop/off/… reserved words. */
+function isClearCommand(arg: string): boolean {
+	return CLEAR_ALIASES.includes(arg.toLowerCase());
+}
+
 export function registerSlashCommands(pi: ExtensionAPI, api: GoalSlashAPI): void {
 	pi.registerCommand("goal", {
 		description: "Goal-directed autonomous work loop",
+		getArgumentCompletions: (prefix: string) => {
+			const p = prefix.trim().toLowerCase();
+			const matches = SUBCOMMAND_COMPLETIONS.filter((c) => c.value.startsWith(p));
+			return matches.length > 0 ? matches : null;
+		},
 		handler: async (args: string, ctx: ExtensionCommandContext) => {
 			const trimmed = args.trim();
 			const goal = api.get();
 
 			if (goal) {
 				// ── Goal is active ──────────────────────────────────
-				if (trimmed === "clear" || trimmed === "stop") {
+				if (isClearCommand(trimmed)) {
 					api.clear();
 					ctx.ui.notify("Goal cleared.", "info");
 					return;
@@ -48,7 +75,7 @@ export function registerSlashCommands(pi: ExtensionAPI, api: GoalSlashAPI): void
 				noActiveGoal(ctx);
 				return;
 			}
-			if (trimmed === "clear" || trimmed === "stop") {
+			if (isClearCommand(trimmed)) {
 				ctx.ui.notify("No active goal to clear.", "warning");
 				return;
 			}

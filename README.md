@@ -52,8 +52,12 @@ pi install git:github.com/kolt-mcb/pi-goal@v0.1.0
 /goal <condition>    Set a goal and start working immediately
 /goal                Show the active goal's status
 /goal status         Alias for /goal
-/goal clear          Clear the active goal (alias: /goal stop)
+/goal clear          Clear the active goal
 ```
+
+`clear` also accepts the aliases `stop`, `off`, `reset`, `none`, and `cancel`.
+The subcommands are offered as autocompletions when you type `/goal ` and press
+Tab.
 
 Re-issuing `/goal <condition>` while a goal is active replaces the condition
 and restarts the loop with it.
