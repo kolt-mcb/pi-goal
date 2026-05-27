@@ -41,7 +41,7 @@ pi install npm:@koltmcbride/pi-goal
 From git:
 
 ```bash
-pi install git:github.com/kolt-mcb/pi-goal@v0.1.0
+pi install git:github.com/kolt-mcb/pi-goal@v0.1.1
 ```
 
 > ⚠️ Pi packages run with full system access. Review the source before installing.
