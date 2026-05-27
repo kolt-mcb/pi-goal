@@ -1,9 +1,12 @@
 {
-  "name": "pi-goal",
+  "name": "@kolt-mcb/pi-goal",
   "version": "0.1.0",
   "description": "Pi extension for goal-directed autonomous work loops",
   "license": "MIT",
   "author": "Kolt McBride",
+  "publishConfig": {
+    "access": "public"
+  },
   "type": "module",
   "keywords": [
     "pi-package",

@@ -32,14 +32,16 @@ you describe the *end state*, not each step.
 
 ## Installation
 
+From npm:
+
 ```bash
-pi install git:github.com/kolt-mcb/pi-goal
+pi install npm:@kolt-mcb/pi-goal
 ```
 
-Or from the full URL:
+From git:
 
 ```bash
-pi install https://github.com/kolt-mcb/pi-goal
+pi install git:github.com/kolt-mcb/pi-goal
 ```
 
 > ⚠️ Pi packages run with full system access. Review the source before installing.
