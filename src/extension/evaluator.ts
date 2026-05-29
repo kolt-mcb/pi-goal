@@ -23,7 +23,7 @@ function buildEvalPrompt(
 	gitStat: string,
 ): string {
 	return [
-		`You are judging whether this goal condition is met:`,\
+		`You are judging whether this goal condition is met:`,
 		`"${condition}"`,
 		`This is turn ${turnCount}.`,
 		"",
@@ -99,7 +99,7 @@ export async function evaluateGoal(
 		const noMatch = /^NO:\s*(.*)/i.exec(firstLine);
 		return {
 			met: false,
-			reason: noMatch?.[1]?.trim() ?? clean.slice(0, 120) || "Evaluator did not reach a conclusion",
+			reason: (noMatch?.[1]?.trim() ?? clean.slice(0, 120)) || "Evaluator did not reach a conclusion",
 		};
 	} catch (err: unknown) {
 		const msg = err instanceof Error ? err.message : String(err);
