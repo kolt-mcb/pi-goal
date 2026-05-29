@@ -23,18 +23,14 @@ import { GOAL_STATE_TYPE, saveState, loadState, saveAchieved } from "./persisten
 import { evaluateGoal, buildTurnEvidence } from "./evaluator";
 import { registerSlashCommands } from "./slash";
 
-// ── Constants ────────────────────────────────────────────────────────────
 const STATUS_KEY = "goal-status";
-// Hard cap on continuation turns, so a goal that never resolves can't loop forever.
 const MAX_TURNS = 120;
 
-// ── Module-level state ───────────────────────────────────────────────────
 let activeGoal: GoalState | null = null;
 let statusTimer: ReturnType<typeof setInterval> | null = null;
 let lastUiCtx: ExtensionContext | null = null;
 let extensionApi: ExtensionAPI | null = null;
 
-// ── Status display ───────────────────────────────────────────────────────
 function statusText(goal: GoalState): string {
 	const totalSec = Math.floor((Date.now() - goal.startedAt) / 1000);
 	const hrs = Math.floor(totalSec / 3600);
@@ -63,25 +59,21 @@ function stopStatusTick(): void {
 	if (statusTimer) { clearInterval(statusTimer); statusTimer = null; }
 }
 
-// ── turn_end handler ─────────────────────────────────────────────────────
 async function handleTurnEnd(event: TurnEndEvent, ctx: ExtensionContext): Promise<void> {
 	if (!activeGoal || !extensionApi) return;
 	if (!ctx.model) {
-		// No model available — can't evaluate, so stop the goal cleanly.
 		stopStatusTick();
 		ctx.ui.setStatus(STATUS_KEY, "⚠ No model for evaluation");
 		activeGoal = null;
 		return;
 	}
 
-	// Build evidence from this turn and ask the evaluator if the goal is met.
 	const evidence = buildTurnEvidence(event);
 	activeGoal.elapsedMs = Date.now() - activeGoal.startedAt;
-	const evalResult = await evaluateGoal(ctx.model, activeGoal, evidence);
+	const evalResult = await evaluateGoal(ctx.model, activeGoal, evidence, ctx.cwd);
 	activeGoal.lastReason = evalResult.reason;
 
 	if (evalResult.met) {
-		// ✓ Goal achieved
 		saveAchieved(extensionApi, activeGoal);
 		const turns = activeGoal.turnCount;
 		stopStatusTick();
@@ -91,7 +83,6 @@ async function handleTurnEnd(event: TurnEndEvent, ctx: ExtensionContext): Promis
 		return;
 	}
 
-	// Goal not met — record progress and continue the loop.
 	activeGoal.turnCount++;
 	saveState(extensionApi, activeGoal);
 	updateStatus(ctx);
@@ -104,21 +95,16 @@ async function handleTurnEnd(event: TurnEndEvent, ctx: ExtensionContext): Promis
 		return;
 	}
 
-	// Inject a continuation message to keep the agent focused on the goal.
 	const reminder = [
 		`[GOAL: turn ${activeGoal.turnCount}]`,
-		``,
-		`The completion condition has not been met yet.`,
-		`Last evaluation: ${evalResult.reason}`,
-		``,
-		`Goal condition: ${activeGoal.condition}`,
-		`Continue working toward it.`,
+		`Condition not met yet. Last evaluation: ${evalResult.reason}`,
+		`Goal: ${activeGoal.condition}`,
+		`Continue working.`,
 	].join("\n");
 
 	extensionApi.sendMessage({
 		customType: GOAL_STATE_TYPE,
 		content: reminder,
-		// Hidden from the TUI (the footer timer shows progress); still steers the model.
 		display: false,
 		details: activeGoal,
 	}, {
@@ -127,11 +113,9 @@ async function handleTurnEnd(event: TurnEndEvent, ctx: ExtensionContext): Promis
 	});
 }
 
-// ── session lifecycle ────────────────────────────────────────────────────
 function handleSessionStart(_event: SessionStartEvent, ctx: ExtensionContext): void {
 	lastUiCtx = ctx;
 
-	// Restore an in-progress goal from a previous session, if any.
 	const saved = loadState(ctx.sessionManager);
 	if (saved) {
 		activeGoal = saved;
@@ -146,7 +130,6 @@ function handleSessionShutdown(_event: SessionShutdownEvent): void {
 	activeGoal = null;
 }
 
-// ── Extension entry point ────────────────────────────────────────────────
 export default function registerGoalExtension(pi: ExtensionAPI): void {
 	extensionApi = pi;
 

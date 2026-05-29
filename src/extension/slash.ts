@@ -16,17 +16,14 @@
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
 import type { GoalState } from "./persistence";
 
-/** Accessors into the extension's active-goal state, supplied by index.ts. */
 export interface GoalSlashAPI {
 	get: () => GoalState | null;
 	set: (state: GoalState) => void;
 	clear: () => void;
 }
 
-/** Words that clear an active goal. Mirrors Claude Code's /goal aliases. */
 const CLEAR_ALIASES = ["clear", "stop", "off", "reset", "none", "cancel"];
 
-/** Subcommands surfaced in the `/goal <Tab>` argument autocomplete. */
 const SUBCOMMAND_COMPLETIONS = [
 	{ value: "status", label: "status", description: "Show the active goal's status" },
 	{ value: "clear", label: "clear", description: "Clear the active goal" },
@@ -37,7 +34,6 @@ const SUBCOMMAND_COMPLETIONS = [
 	})),
 ];
 
-/** True when the argument is one of the clear/stop/off/… reserved words. */
 function isClearCommand(arg: string): boolean {
 	return CLEAR_ALIASES.includes(arg.toLowerCase());
 }
@@ -55,7 +51,6 @@ export function registerSlashCommands(pi: ExtensionAPI, api: GoalSlashAPI): void
 			const goal = api.get();
 
 			if (goal) {
-				// ── Goal is active ──────────────────────────────────
 				if (isClearCommand(trimmed)) {
 					api.clear();
 					ctx.ui.notify("Goal cleared.", "info");
@@ -65,12 +60,10 @@ export function registerSlashCommands(pi: ExtensionAPI, api: GoalSlashAPI): void
 					showStatus(goal, ctx);
 					return;
 				}
-				// Additional args on an active goal → replace the condition
 				doSetGoal(pi, api, trimmed, ctx);
 				return;
 			}
 
-			// ── No active goal ──────────────────────────────────────
 			if (!trimmed || trimmed === "status") {
 				noActiveGoal(ctx);
 				return;
@@ -80,13 +73,11 @@ export function registerSlashCommands(pi: ExtensionAPI, api: GoalSlashAPI): void
 				return;
 			}
 
-			// New goal
 			doSetGoal(pi, api, trimmed, ctx);
 		},
 	});
 }
 
-/** Set a fresh goal and start the first turn with the condition as the prompt. */
 function doSetGoal(
 	pi: ExtensionAPI,
 	api: GoalSlashAPI,
@@ -100,13 +91,21 @@ function doSetGoal(
 		elapsedMs: 0,
 		lastReason: "",
 	});
-	ctx.ui.notify(
-		`Goal set: "${truncate(condition, 60)}"`,
-		"info",
-	);
 
-	// Kick off the first turn. Send raw (executeSlashCommands defaults to false)
-	// so a condition that happens to start with "/" is treated as plain text.
+	// Warn on clearly vague conditions.
+	const vague = /^(complete\s+(the\s+)?list|fix\s+(the\s+)?(things?|bugs)|make\s+it\s+work|finish|do\s+it)/i;
+	if (vague.test(condition.trim())) {
+		setTimeout(() => {
+			ctx.ui.notify(
+				"Vague goal condition — the evaluator may struggle. " +
+				"Use a measurable target like 'all items in X.md are [x]'.",
+				"warning",
+			);
+		}, 1500);
+	}
+
+	ctx.ui.notify(`Goal set: "${truncate(condition, 60)}"`, "info");
+
 	pi.sendUserMessage(condition);
 }
 

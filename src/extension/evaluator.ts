@@ -3,9 +3,10 @@
  *
  * Calls the same configured model with a minimal prompt to determine
  * whether the goal completion condition has been satisfied based on
- * the agent's most recent turn output.
+ * the agent's most recent turn output and file-level evidence.
  */
 
+import { execSync } from "node:child_process";
 import { completeSimple } from "@earendil-works/pi-ai";
 import type { Model } from "@earendil-works/pi-ai";
 import type { GoalState } from "./persistence";
@@ -13,25 +14,46 @@ import type { GoalState } from "./persistence";
 interface EvalResult {
 	met: boolean;
 	reason: string;
-	usage?: { input: number; output: number };
 }
 
-/**
- * Build the evaluator prompt from the goal condition and turn evidence.
- */
-function buildEvalPrompt(condition: string, turnText: string, turnCount: number): string {
+function buildEvalPrompt(
+	condition: string,
+	turnText: string,
+	turnCount: number,
+	gitStat: string,
+): string {
 	return [
-		`CONDITION: ${condition}`,
-		`TURN: ${turnCount}`,
-		`AGENT OUTPUT SUMMARY (text + tool results from last turn):`,
+		`You are judging whether this goal condition is met:`,\
+		`"${condition}"`,
+		`This is turn ${turnCount}.`,
+		"",
+		"=== FILE CHANGES ===",
+		gitStat || "(no changes)",
+		"",
+		"=== AGENT OUTPUT (last turn) ===",
 		"---",
-		truncate(turnText, 6000),
+		truncate(turnText, 8000),
 		"---",
 		"",
-		"Has the condition been met? Reply with exactly one of:",
-		'  YES  — if the agent output demonstrates the condition is satisfied.',
-		'  NO: <brief reason>  — if not, what is still needed.',
+		"Reply with exactly one of these two options:",
+		"",
+		"YES",
+		"NO: <reason>",
+		"",
+		"Use YES only when the evidence clearly shows the condition is satisfied.",
+		"Use NO if the condition is not met or you cannot tell.",
 	].join("\n");
+}
+
+function gitDiffStat(cwd: string): string {
+	try {
+		return execSync(
+			`git -C ${cwd} diff --stat -- .`,
+			{ encoding: "utf-8", timeout: 5000 },
+		).trim();
+	} catch {
+		return "";
+	}
 }
 
 /**
@@ -41,15 +63,21 @@ export async function evaluateGoal(
 	model: Model<any>,
 	state: GoalState,
 	turnText: string,
+	cwd?: string,
 ): Promise<EvalResult> {
-	const prompt = buildEvalPrompt(state.condition, turnText, state.turnCount + 1);
+	const gitStat = cwd ? gitDiffStat(cwd) : "";
+	const prompt = buildEvalPrompt(
+		state.condition,
+		turnText,
+		state.turnCount + 1,
+		gitStat,
+	);
 
 	try {
 		const result = await completeSimple(model, {
 			messages: [{ role: "user", content: prompt, timestamp: Date.now() }],
 			tools: [],
 		}, {
-			// Keep the evaluator cheap: a yes/no judgement needs no deep reasoning.
 			reasoning: "minimal",
 		});
 
@@ -59,14 +87,19 @@ export async function evaluateGoal(
 			.join(" ")
 			.trim();
 
-		if (/^YES$/i.test(text)) {
+		// Strip thinking blocks and get the first line — the model should reply
+		// with YES or NO: <reason> on the first line.
+		const clean = text.replace(/<thinking>.*?<\/thinking>/gs, "").trim();
+		const firstLine = clean.split("\n")[0].trim();
+
+		if (/^YES$/i.test(firstLine)) {
 			return { met: true, reason: "Condition satisfied" };
 		}
 
-		const match = /^NO:\s*(.*)/i.exec(text);
+		const noMatch = /^NO:\s*(.*)/i.exec(firstLine);
 		return {
 			met: false,
-			reason: match?.[1]?.trim() ?? "Evaluator did not reach a conclusion",
+			reason: noMatch?.[1]?.trim() ?? clean.slice(0, 120) || "Evaluator did not reach a conclusion",
 		};
 	} catch (err: unknown) {
 		const msg = err instanceof Error ? err.message : String(err);
@@ -78,31 +111,27 @@ export async function evaluateGoal(
 }
 
 /**
- * Evaluate with explicit turn text and context messages.
- * The turnText should contain the assistant's text + tool result evidence
- * from the most recent turn.
+ * Build evidence text from a turn end event.
  */
 export function buildTurnEvidence(
 	event: { message?: unknown; toolResults?: unknown[] },
 ): string {
 	const parts: string[] = [];
 
-	// Assistant message text
 	const msg = event.message as { role?: string; content?: unknown[] } | undefined;
 	if (msg?.content && Array.isArray(msg.content)) {
 		for (const block of msg.content) {
 			const b = block as { type?: string; text?: string; name?: string; arguments?: unknown };
 			if (b.type === "text" && b.text) {
-				parts.push(`--- text output ---\n${b.text}`);
+				parts.push(`--- text ---\n${b.text}`);
 			} else if (b.type === "toolCall" || b.type === "tool_use") {
-				const toolName = b.name ?? "unknown";
+				const name = b.name ?? "unknown";
 				const args = typeof b.arguments === "string" ? b.arguments : JSON.stringify(b.arguments ?? "");
-				parts.push(`--- tool use: ${toolName} ---\n${args}`);
+				parts.push(`--- tool: ${name} ---\n${args}`);
 			}
 		}
 	}
 
-	// Tool results
 	const toolResults = event.toolResults as Array<{
 		toolName?: string;
 		content?: Array<{ type?: string; text?: string }>;
@@ -111,13 +140,12 @@ export function buildTurnEvidence(
 	if (toolResults?.length) {
 		for (const tr of toolResults) {
 			const name = tr.toolName ?? "unknown";
-			const isError = tr.isError ? " [error]" : "";
 			const text = (tr.content ?? [])
 				.filter((c: { type?: string; text?: string }) => c.type === "text")
 				.map((c: { type?: string; text?: string }) => c.text ?? "")
 				.join("\n");
 			if (text) {
-				parts.push(`--- tool result: ${name}${isError} ---\n${text}`);
+				parts.push(`--- ${name}${tr.isError ? " [error]" : ""} ---\n${text}`);
 			}
 		}
 	}
@@ -126,6 +154,5 @@ export function buildTurnEvidence(
 }
 
 function truncate(s: string, max: number): string {
-	if (s.length <= max) return s;
-	return s.slice(0, max) + "\n...(truncated)";
+	return s.length > max ? s.slice(0, max) + "\n...(truncated)" : s;
 }
